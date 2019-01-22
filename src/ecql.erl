@@ -178,7 +178,7 @@ autodiscover_peers() ->
        [{Addr, 9042} | List]
      end, [{Addr0, 9042}], Peers)
     ,{ok, Hosts}
-  end of 
+  end of
     {ok, H} -> {autodiscover, H};
     Error ->
       error_logger:error_msg("ecql: autodiscovery failed: ~p~n", [Error])
@@ -317,7 +317,7 @@ handle_info(autodiscover, State) ->
    spawn_monitor(fun() -> exit(autodiscover_peers()) end)
   ,{noreply, State}
 ;
-handle_info(  
+handle_info(
   {'DOWN', _Ref, process, _Pid, {autodiscover, Update}}, State = #state{settings = Settings, dirty = Dirty}
 ) ->
    OldHosts = proplists:get_value(hosts, Settings, [])
@@ -325,7 +325,7 @@ handle_info(
   ,case Update of
      [] -> {noreply, State};
      OldHosts -> {noreply, State};
-     Hosts when is_list(Hosts) -> 
+     Hosts when is_list(Hosts) ->
          NewSettings = lists:keystore(hosts, 1, Settings, {hosts, lists:sort(Hosts)})
         ,Dirty orelse (self() ! repair)
         ,{noreply, State#state{settings = NewSettings, dirty = true}}
@@ -441,7 +441,7 @@ release() ->
     ;
     _ ->
        Ret = with_stream_do(release, [])
-      ,erase(last_ccon)
+      ,erase()
       ,Ret
     %~
   end
@@ -643,11 +643,11 @@ indexof(Element, [_ | Tail]) ->
 
 %%------------------------------------------------------------------------------
 with_stream_do(Function, Args) ->
-  Stream = case get(last_ccon) of
+  Stream = case get({Function, last_ccon}) of
     undefined ->
        Connection = gen_server:call(?MODULE, connection, infinity)
       ,Stream0 = ecql_connection:get_stream(Connection)
-      ,put(last_ccon, Stream0)
+      ,put({Function, last_ccon}, Stream0)
       ,Stream0
     ;
     LastStream ->
@@ -657,7 +657,7 @@ with_stream_do(Function, Args) ->
   ,try log(apply(ecql_stream, Function, [Stream | Args]), Function, Args)
    catch
      exit:{noproc, _} ->
-       put(last_ccon, undefined)
+       put({Function, last_ccon}, undefined)
       ,with_stream_do(Function, Args)
      %~
    end
